@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Price the Job — Live Tracker</title>
+<style>
+:root{ --hv:#ffd200; --ink:#16181b; --pan:#22262b; --pan2:#2c3137; --line:#3d444c; --txt:#eceae4; --mut:#a3a8ad;
+  --ok:#3ccf6e; --bad:#ff5a4e; --amb:#ffb02e; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;background:#1b1e21;color:var(--txt);line-height:1.45}
+.stripe{height:12px;background:repeating-linear-gradient(-45deg,var(--hv) 0 20px,var(--ink) 20px 40px)}
+.wrap{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-family:Impact,"Arial Black",sans-serif;font-weight:normal;color:var(--hv);font-size:34px;letter-spacing:1px}
+h2{font-size:18px;color:var(--hv);margin-bottom:10px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end;background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0}
+.controls label{font-size:12.5px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+.controls input,.controls select{font:inherit;font-size:14px;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:#14171a;color:var(--txt)}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--pan2);color:var(--txt);padding:7px 12px;font-size:14px}
+button.pri{background:var(--hv);color:var(--ink);border:0;font-weight:800}
+#status{font-size:13px;color:var(--mut);margin-left:auto}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:12px}
+.tile b{display:block;font-size:28px;color:var(--hv)}
+.tile span{font-size:13px;color:var(--mut)}
+.tile.warn b{color:var(--bad)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:900px){.cols{grid-template-columns:1fr}}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.crew{display:flex;align-items:center;gap:10px;margin:8px 0}
+.crew .nm{width:130px;font-weight:800;white-space:nowrap}
+.crew .bar{flex:1;height:26px;background:#14171a;border-radius:6px;overflow:hidden}
+.crew .bar i{display:block;height:100%;background:var(--hv)}
+.crew .v{width:120px;text-align:right;font-weight:800}
+.crew .ppl{font-size:12px;color:var(--mut)}
+.help{border-left:4px solid var(--bad);background:var(--pan2);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:14px}
+.help.idle{border-left-color:var(--amb)}
+.help b{font-size:15px}
+.help .ask{color:var(--hv);margin-top:3px}
+table.grid{width:100%;border-collapse:collapse;font-size:14px}
+table.grid th{text-align:left;color:var(--mut);font-weight:600;border-bottom:1px solid var(--line);padding:6px;cursor:pointer;white-space:nowrap}
+table.grid td{border-bottom:1px solid #30363c;padding:6px;vertical-align:top}
+table.grid tr.row:hover{background:#262b30;cursor:pointer}
+.chip{display:inline-block;min-width:30px;text-align:center;border-radius:4px;padding:1px 4px;font-size:12px;margin:1px;background:#3a4047;color:#c9cdd1}
+.chip.done{background:var(--ok);color:#06240f;font-weight:700}
+.chip.part{background:var(--amb);color:#2a1a00}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.ago.idle{color:var(--amb);font-weight:700}
+.detail td{background:#1f2327;padding:10px 14px}
+.dl{margin:4px 0;font-size:14.5px}
+.dl .x{color:var(--bad);font-weight:700}
+.dl .m{color:var(--ok)}
+.hard{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:13.5px}
+.hard .lab{flex:1}
+.hard .b{width:140px;height:12px;background:#14171a;border-radius:4px;overflow:hidden}
+.hard .b i{display:block;height:100%}
+.small{font-size:12.5px;color:var(--mut)}
+/* projector */
+body.proj .controls,body.proj .hideproj{display:none!important}
+body.proj .cols{grid-template-columns:1fr}
+body.proj h1{font-size:56px;text-align:center}
+body.proj .crew{margin:18px 0}
+body.proj .crew .nm{width:280px;font-size:32px;white-space:nowrap}
+body.proj .crew .bar{height:54px}
+body.proj .crew .v{width:220px;font-size:34px}
+body.proj .crew .ppl{font-size:16px}
+#projExit{display:none;position:fixed;top:10px;right:10px}
+body.proj #projExit{display:block}
+.top5 li{font-size:26px;margin:6px 0 6px 34px}
+details.job{border:1px solid var(--line);border-radius:8px;margin:8px 0;background:var(--pan2)}
+details.job summary{cursor:pointer;padding:10px 12px;font-weight:800;font-size:16px;color:var(--hv)}
+details.job .in{padding:4px 14px 14px}
+.ansrow{border-top:1px solid var(--line);padding:10px 0;font-size:14.5px}
+.ansrow .q{font-weight:700}
+.ansrow .a{display:inline-block;background:var(--ok);color:#06240f;font-weight:800;border-radius:5px;padding:1px 9px;margin:4px 0}
+.ansrow .wk{color:var(--hv)}
+.ansrow .why{margin-top:3px}
+.ansrow .wf{margin-top:3px;color:#ffb3ad}
+.keyidea{background:#14171a;border-left:4px solid var(--hv);padding:8px 12px;margin:8px 0;font-size:14.5px}
+body.printAns .wrap > *:not(#ansCard){display:none!important}
+body.printAns .stripe{display:none}
+@media print{ body{background:#fff;color:#000} .card,details.job{background:#fff;border-color:#999} details.job summary,.ansrow .wk,h2{color:#000} .ansrow .a{background:#ddd;color:#000} .ansrow .wf{color:#700} .small{color:#333} .keyidea{background:#f3f3f3;color:#000} }
+@media print{.controls,button{display:none}}
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<button id="projExit" onclick="toggleProj()">Exit projector view</button>
+<div class="wrap">
+<h1>Price the Job — Live Tracker</h1>
+<div class="controls">
+  <label>Teacher token <input id="token" type="password" placeholder="as on your other trackers" style="width:190px"></label>
+  <label><span>Auto-refresh</span><select id="auto"><option value="10">every 10 seconds</option><option value="30">every 30 seconds</option><option value="0">off</option></select></label>
+  <button class="pri" onclick="loadLive()">Refresh now</button>
+  <button onclick="toggleProj()">Projector view</button>
+  <button onclick="exportCSV()">Download CSV</button>
+  <span id="status">Not loaded yet.</span>
+</div>
+
+<div class="tiles hideproj" id="tiles"></div>
+
+<div class="cols">
+  <div>
+    <div class="card"><h2>Leaderboard</h2><div id="crews"><p class="small">No one signed in yet.</p></div></div>
+  </div>
+  <div class="hideproj">
+    <div class="card"><h2>Go and see now</h2><p class="small">Stuck = has just got the step they are on wrong, or missed 2 of their last 3 steps. Idle = no answer for 3 minutes or more.</p><div id="help"></div></div>
+  </div>
+</div>
+
+<div class="card hideproj"><h2>Every pupil</h2>
+  <p class="small">Click a pupil to see each step they got wrong, what they typed and the right method. Click a heading to sort.</p>
+  <table class="grid"><thead><tr>
+    <th onclick="sortBy('name')">Pupil</th><th onclick="sortBy('cash')">Earned</th>
+    <th onclick="sortBy('acc')">Right first time</th><th>Jobs</th><th onclick="sortBy('at')">Now on</th>
+    <th onclick="sortBy('wrong')">Missed</th><th onclick="sortBy('ago')">Last answer</th><th>Confidence</th></tr></thead>
+  <tbody id="grid"></tbody></table>
+</div>
+
+<div class="card hideproj"><h2>Hardest steps across the class</h2>
+  <p class="small">% who got each step right first time without the hint (only steps at least 2 pupils have answered). Reteach the red ones with the whole room.</p>
+  <div id="hard"></div>
+</div>
+<div class="card hideproj" id="ansCard"><h2>Answer sheet — every job, every step</h2>
+  <p class="small">Answers, working and why it is done that way, plus the wrong answers you are likely to see. Open a job to read it. <button onclick="printAnswers()">Print answer sheet</button> <button onclick="toggleAllAns()">Open / close all</button></p>
+  <div id="answers"></div>
+</div>
+<p class="small hideproj">Book code <code>ptj26-l1</code> · same class store as the Latin trackers · pupils' typed answers are kept, so a pupil who signs in again on another computer carries on where they left off.</p>
+</div>
+
+<script>
+const PUPIL_NAMES=["JayJay","Riley","Carter","Ted","Thomas N","Thomas P","Alfie"];
+const CLASS_CODE="SITE";
+const PRICES_CHECKED="7 October 2026";
+const BRANCHES=[
+ ["Toolstation Worcester","Tolladine Road, Worcester WR4 9GN","https://www.google.com/maps/search/Toolstation+Worcester"],
+ ["Screwfix Worcester","on the map","https://www.google.com/maps/search/Screwfix+Worcester"],
+ ["Travis Perkins Worcester","on the map","https://www.google.com/maps/search/Travis+Perkins+Worcester"]
+];
+const JOBS = [
+ {id:"j1", title:"Job 1 — Garden Clearance", client:"Mrs Patel, Martley",
+  brief:"Mrs Patel wants her overgrown back garden cleared. You need one labourer for 3 days and 2 skips.",
+  prices:[["Labourer","£130 a day (typical local day rate)"],
+          ["Skip hire, Worcester","from £384 per skip (inc VAT)","https://nationaltoolhire.co.uk/skip-hire/worcester"]],
+  steps:[
+   {q:"The labourer works 3 days. What does the labour cost?", a:390, u:"£", m:"3 × £130 = £390"},
+   {q:"She needs 2 skips. What do the skips cost?", a:768, u:"£", m:"2 × £384 = £768"},
+   {q:"What is the total price for the job (labour + skips)?", a:1158, u:"£", m:"£390 + £768 = £1,158"},
+   {q:"Mrs Patel paid a £200 deposit up front. How much does she still owe you at the end?", a:958, u:"£", m:"£1,158 − £200 = £958"}
+  ]},
+ {id:"j2", title:"Job 2 — Front Garden Wall", client:"Mr Hughes, Martley",
+  brief:"Mr Hughes wants a new brick wall along the front of his house: 6 m long and 1.5 m high, one brick thick.",
+  prices:[["Bricks needed","60 bricks per m² of wall"],
+          ["Spares for breakages","add 10% extra bricks"],
+          ["Red multi facing bricks","£1.06 + VAT = £1.27 each","https://merchants.buymaterials.com/product/222316"],
+          ["Sand and cement for mortar","allow £60 for this wall"],
+          ["Bricklayer","£220 a day (typical local day rate) — this wall takes 2 days"]],
+  steps:[
+   {q:"What is the area of the wall in m²?", a:9, u:"m²", m:"Area = length × height = 6 × 1.5 = 9 m²"},
+   {q:"How many bricks for 9 m²?", a:540, u:"bricks", m:"9 × 60 = 540 bricks"},
+   {q:"Add 10% extra for breakages. How many bricks now?", a:594, u:"bricks", m:"10% of 540 = 54. 540 + 54 = 594 bricks"},
+   {q:"What do 594 bricks cost at £1.27 each?", a:754.38, u:"£", m:"594 × £1.27 = £754.38"},
+   {q:"What does the bricklayer cost for 2 days?", a:440, u:"£", m:"2 × £220 = £440"},
+   {q:"Total price: bricks + mortar + bricklayer?", a:1254.38, u:"£", m:"£754.38 + £60 + £440 = £1,254.38"}
+  ]},
+ {id:"j3", title:"Job 3 — Patio", client:"The Wilsons, Martley",
+  brief:"The Wilsons want a patio laid behind their house: 4 m by 3 m. Slabs and sand only come in big packs, so you will have to round up.",
+  prices:[["Marshalls Urbex slabs 600 × 600 mm","pack of 30 covers 10.8 m² — £405 a pack (Toolstation)","https://www.toolstation.com/marshalls-urbex-textured-concrete-paving-slabs/p25797"],
+          ["Sharp sand, 800 kg bulk bag","£58.74 a bag — one bag covers about 10 m² at 5 cm deep","https://materialsmarket.com/products/sharp-sand-bulk-bag"],
+          ["Labour","£180 a day (typical local day rate) — this patio takes 2 days"]],
+  steps:[
+   {q:"What is the area of the patio in m²?", a:12, u:"m²", m:"4 × 3 = 12 m²"},
+   {q:"One pack of slabs covers 10.8 m². How many packs must you buy?", a:2, u:"packs", m:"12 ÷ 10.8 = 1.11 packs. You can't buy part of a pack, so ROUND UP to 2", h:"12 ÷ 10.8 = ? Then round UP — you can only buy whole packs"},
+   {q:"What do the slabs cost?", a:810, u:"£", m:"2 × £405 = £810"},
+   {q:"One bulk bag of sand covers about 10 m². How many bags?", a:2, u:"bags", m:"12 ÷ 10 = 1.2 bags. ROUND UP to 2", h:"12 ÷ 10 = ? Then round UP to whole bags"},
+   {q:"What does the sand cost?", a:117.48, u:"£", m:"2 × £58.74 = £117.48"},
+   {q:"What does the labour cost?", a:360, u:"£", m:"2 days × £180 = £360"},
+   {q:"Total price (slabs + sand + labour)?", a:1287.48, u:"£", m:"£810 + £117.48 + £360 = £1,287.48"},
+   {q:"You ask for a 20% deposit before you start. How much is the deposit? (to the nearest penny)", a:257.496, u:"£", m:"10% of £1,287.48 = £128.748. Double it: £257.496, which is £257.50", h:"Find 10% (divide by 10), then double it"}
+  ]},
+ {id:"j4", title:"Job 4 — Decorate a Bedroom", client:"Ms Okafor, Martley",
+  brief:"Ms Okafor wants the walls of a bedroom painted white. The room is 4 m by 3 m and the walls are 2.5 m high. There is one door (2 m²) that does not get painted. Two coats.",
+  prices:[["Dulux Trade Vinyl Matt, 5 litre","£46.59 (Toolstation) — covers up to 17 m² per litre","https://www.toolstation.com/dulux-trade-vinyl-matt-emulsion-paint/p45146"],
+          ["Dulux Trade Vinyl Matt, 10 litre","£54.99 (Toolstation)","https://www.toolstation.com/dulux-trade-vinyl-matt-emulsion-paint/p94109"],
+          ["Decorator","£160 a day (typical local day rate) — this job takes 1.5 days"]],
+  steps:[
+   {q:"Walk round the room: what is the total length of the four walls (the perimeter)?", a:14, u:"m", m:"4 + 3 + 4 + 3 = 14 m"},
+   {q:"What is the total wall area?", a:35, u:"m²", m:"Perimeter × height = 14 × 2.5 = 35 m²"},
+   {q:"Take off the door. What area gets painted?", a:33, u:"m²", m:"35 − 2 = 33 m²"},
+   {q:"Two coats means painting it twice. What area of paint is that?", a:66, u:"m²", m:"33 × 2 = 66 m²"},
+   {q:"1 litre covers 17 m². How many whole litres do you need?", a:4, u:"litres", m:"66 ÷ 17 = 3.9 litres. ROUND UP to 4 litres — so one 5 litre tin is enough", h:"66 ÷ 17 = ? Then round UP to whole litres"},
+   {q:"What does the decorator cost for 1.5 days?", a:240, u:"£", m:"1.5 × £160 = £240 (1 day £160 + half a day £80)", h:"1 day is £160. Half a day is £80. Add them"},
+   {q:"Total price: one 5 litre tin + decorator?", a:286.59, u:"£", m:"£46.59 + £240 = £286.59"},
+   {q:"Value check: what does ONE litre cost in the 10 litre tin? (to the nearest penny)", a:5.499, u:"£", m:"£54.99 ÷ 10 = £5.499, which is £5.50 a litre (the 5 litre tin is £9.32 a litre)", h:"£54.99 ÷ 10 = ?"}
+  ]},
+ {id:"j5", title:"Job 5 — The Boss Job: Fencing", client:"Greenway Builders Ltd, Worcester",
+  brief:"A building firm wants a new fence down the side of a site: 18.3 m long. Panels sit between posts, and you need one more post than panels (a post at each end). You are sending a two-person crew.",
+  prices:[["Forest closeboard panels 6ft × 6ft (1.83 m wide)","pack of 3 — £237.99 a pack (Toolstation)","https://www.toolstation.com/forest-garden-closeboard-fence-panel/p82666"],
+          ["Forest fence posts 2.4 m","pack of 4 — £99.99 a pack (Screwfix)","https://www.screwfix.com/p/forest-natural-timber-fence-posts-75mm-x-75mm-x-2-4m-4-pack/26979"],
+          ["Blue Circle Postcrete 20 kg","£7.49 a bag (Toolstation) — use 2 bags per post","https://www.toolstation.com/blue-circle-postcrete/p38931"],
+          ["Labour","2 workers × 2 days, each worker £150 a day"]],
+  steps:[
+   {q:"Each panel is 1.83 m wide. How many panels for 18.3 m?", a:10, u:"panels", m:"18.3 ÷ 1.83 = 10 panels"},
+   {q:"Panels come in packs of 3. How many packs?", a:4, u:"packs", m:"10 ÷ 3 = 3.33 packs. ROUND UP to 4 (you'll have 2 spare panels)", h:"10 ÷ 3 = ? Then round UP to whole packs"},
+   {q:"What do the panels cost?", a:951.96, u:"£", m:"4 × £237.99 = £951.96"},
+   {q:"How many posts?", a:11, u:"posts", m:"One more post than panels: 10 + 1 = 11 posts", h:"One post at each end: panels + 1"},
+   {q:"Posts come in packs of 4. What do the posts cost?", a:299.97, u:"£", m:"11 ÷ 4 = 2.75, ROUND UP to 3 packs. 3 × £99.99 = £299.97", h:"11 ÷ 4 = ? Round UP to whole packs, then × £99.99"},
+   {q:"2 bags of Postcrete per post. What does the Postcrete cost?", a:164.78, u:"£", m:"11 posts × 2 = 22 bags. 22 × £7.49 = £164.78", h:"Posts × 2 = bags. Then bags × £7.49"},
+   {q:"Total cost of MATERIALS (panels + posts + Postcrete)?", a:1416.71, u:"£", m:"£951.96 + £299.97 + £164.78 = £1,416.71"},
+   {q:"What does the labour cost?", a:600, u:"£", m:"2 workers × 2 days × £150 = £600"},
+   {q:"Final price for the job (materials + labour)?", a:2016.71, u:"£", m:"£1,416.71 + £600 = £2,016.71"}
+  ]},
+ {id:"j6", title:"Bonus — Payday", client:"You, in five years",
+  brief:"You're qualified. Option A: work for a firm. Option B: go self-employed with your own van. Which leaves you with more money in a year? (Example figures.)",
+  prices:[["Option A — employed","£18 an hour, 39 hours a week, paid 52 weeks a year (holidays are paid)"],
+          ["Option B — self-employed","you charge £200 a day, work 4 days a week, 46 weeks a year (no holiday pay)"],
+          ["Option B — your van","£450 a month (lease, insurance, fuel)"]],
+  steps:[
+   {q:"Option A: what do you earn in one week?", a:702, u:"£", m:"39 × £18 = £702"},
+   {q:"Option A: what do you earn in a year?", a:36504, u:"£", m:"£702 × 52 = £36,504"},
+   {q:"Option B: what do you take in over a year?", a:36800, u:"£", m:"£200 × 4 days × 46 weeks = £36,800"},
+   {q:"Option B: what does the van cost for a year?", a:5400, u:"£", m:"£450 × 12 months = £5,400"},
+   {q:"Option B: what is left after paying for the van?", a:31400, u:"£", m:"£36,800 − £5,400 = £31,400"},
+   {q:"How much MORE does Option A leave you with than Option B?", a:5104, u:"£", m:"£36,504 − £31,400 = £5,104 (before tax on either)", h:"Option A yearly − what Option B has left"}
+  ]}
+];
+const FULL=100, SECOND=50, HINTED=50;
+
+/* Teacher-only explanations for the answer sheet. e = why it works, w = wrong answers to look out for */
+const TNOTES = {
+ j1_0:{e:"Day rate × number of days. A day rate is what one worker is paid for one full day.", w:"130 (forgot to multiply by 3); 133 (added 3 instead of multiplying)"},
+ j1_1:{e:"Price of one skip × number of skips.", w:"384 (only one skip); 386"},
+ j1_2:{e:"The price of a job is everything added together: labour and materials or hire.", w:"Any answer that comes from adding the day rate (130) instead of the labour total (390)"},
+ j1_3:{e:"A deposit is money paid before the work starts. It is part of the total, so take it off to find what is still owed.", w:"1358 (added the deposit instead of taking it away)"},
+ j2_0:{e:"Area of a rectangle = length × height. The wall is a flat rectangle, so 6 × 1.5. Units are square metres (m²).", w:"7.5 (added 6 + 1.5 instead of multiplying); 15 (half the perimeter doubled)"},
+ j2_1:{e:"60 bricks cover each square metre, so multiply the area by 60.", w:"60 (forgot to multiply); 69 (added 9)"},
+ j2_2:{e:"Builders buy extra because some bricks break or get cut. 10% of a number = divide by 10. So 10% of 540 is 54. Add that on to the 540.", w:"54 (gave the 10% only, didn't add it on); 550 (added 10, not 10%); 5940 (multiplied by 11 then forgot the divide)"},
+ j2_3:{e:"Number of bricks × price of one brick. A calculator gives 754.38 exactly. This is the first answer with pence in it — remind them that .38 is 38p.", w:"754.4 is marked wrong — they must type all the pence (754.38); 75438 (missed the decimal point); 685.80 (used 540 bricks, before adding the 10%)"},
+ j2_4:{e:"Day rate × days: 2 × £220.", w:"220 (one day only)"},
+ j2_5:{e:"Add the three costs: bricks £754.38 + mortar £60 + bricklayer £440. Line up the pounds and pence.", w:"1194.38 (left out the £60 mortar); 1314.38 (added mortar twice)"},
+ j3_0:{e:"Area of a rectangle = length × width. 4 × 3 = 12 m².", w:"7 (added); 14 (perimeter)"},
+ j3_1:{e:"Divide the area needed by what one pack covers: 12 ÷ 10.8 = 1.11. One pack is not enough, and you cannot buy 0.11 of a pack, so you buy 2. This is the key idea of the lesson: when buying materials you ALWAYS round up, even if the decimal is small.", w:"1 (rounded down — the most likely mistake; one pack only covers 10.8 m²); 1.11"},
+ j3_2:{e:"Packs × price per pack: 2 × £405.", w:"405 (one pack); 449.55 (tried to pay for 1.11 packs)"},
+ j3_3:{e:"Same idea as the slabs: 12 ÷ 10 = 1.2 bags, so round up to 2.", w:"1 (rounded down); 1.2"},
+ j3_4:{e:"2 × £58.74. Doubling: £58 × 2 = £116, 74p × 2 = £1.48, total £117.48.", w:"58.74 (one bag); 117.5 is marked wrong — they must type all the pence (117.48)"},
+ j3_5:{e:"Day rate × days: 2 × £180.", w:"180"},
+ j3_6:{e:"Add slabs £810 + sand £117.48 + labour £360.", w:"1170 (left out the sand); 927.48 (left out the labour)"},
+ j3_7:{e:"20% = two lots of 10%. 10% = divide by 10, so £128.748. Double it: £257.496. Money only goes to two decimal places (pence), so round to £257.50. A calculator method: 1287.48 × 0.2. The page accepts 257.49, 257.5 or 257.50.", w:"128.75 (10% only, didn't double); 1544.98 (added 20% on instead of finding 20%); 25749.6 (multiplied by 20)"},
+ j4_0:{e:"Perimeter = the distance all the way round the room. A 4 m by 3 m room has two 4 m walls and two 3 m walls: 4 + 3 + 4 + 3 = 14 m.", w:"7 (only two walls); 12 (multiplied 4 × 3 — that is the floor area, not the walls)"},
+ j4_1:{e:"Imagine unrolling all four walls into one long strip 14 m long and 2.5 m high. Area = 14 × 2.5 = 35 m².", w:"30 (12 × 2.5, used floor area); 16.5 (added 14 + 2.5)"},
+ j4_2:{e:"The door is not painted, so subtract its area: 35 − 2 = 33 m².", w:"37 (added the door)"},
+ j4_3:{e:"Two coats means every square metre is painted twice, so double the area.", w:"33 (forgot the second coat)"},
+ j4_4:{e:"Divide the area by how much one litre covers: 66 ÷ 17 = 3.88. Round UP to 4 litres, because 3 litres would leave part of the wall unpainted. One 5 litre tin covers it.", w:"3 (rounded down); 3.88; 2 (used 33 instead of 66)"},
+ j4_5:{e:"1.5 days = one full day plus half a day. £160 + £80 = £240. Or on a calculator 1.5 × 160.", w:"160 (one day); 320 (two days); 161.5 (added 1.5)"},
+ j4_6:{e:"One 5 litre tin is enough (they need 4 litres). Add £46.59 + £240.", w:"333.18 (bought two tins); 294.99 (used the 10 litre tin £54.99 — not wrong in real life, but the question says the 5 litre tin)"},
+ j4_7:{e:"Price per litre = price ÷ litres. £54.99 ÷ 10 = £5.499, so about £5.50 a litre. The 5 litre tin is £46.59 ÷ 5 = £9.32 a litre, so the bigger tin is much better value — worth asking them why a decorator would buy the big tin anyway. Accepts 5.49, 5.5 or 5.50.", w:"549.9 (multiplied by 10); 9.32 (worked out the 5 litre tin instead)"},
+ j5_0:{e:"How many 1.83 m panels fit along 18.3 m: 18.3 ÷ 1.83 = 10 exactly.", w:"9 or 11 (guessing); 33.49 (multiplied)"},
+ j5_1:{e:"10 panels ÷ 3 per pack = 3.33 packs. Three packs only gives 9 panels, so buy 4 packs (12 panels, 2 spare). Round UP again.", w:"3 (rounded down — leaves them one panel short); 3.33"},
+ j5_2:{e:"Packs × price per pack: 4 × £237.99. Quick way: 4 × £238 = £952, take off 4p = £951.96.", w:"713.97 (three packs); 2379.90 (paid for 10 packs instead of 10 panels)"},
+ j5_3:{e:"Posts go at both ends of every panel, and neighbouring panels share a post. So there is always one more post than panels: 10 + 1 = 11. Draw it on the board: P | P | P … with 3 panels you need 4 posts.", w:"10 (one per panel — the classic fence-post mistake); 20"},
+ j5_4:{e:"11 posts ÷ 4 per pack = 2.75 packs. Round UP to 3 packs (12 posts). 3 × £99.99 = £299.97.", w:"199.98 (two packs, rounded down); 274.97 (paid for 2.75 packs); 1099.89 (paid for 11 packs)"},
+ j5_5:{e:"2 bags for each post: 11 × 2 = 22 bags. 22 × £7.49 = £164.78. Note they use the 11 posts they need, not the 12 posts they bought.", w:"82.39 (one bag per post); 179.76 (24 bags, used 12 posts)"},
+ j5_6:{e:"Add the three materials: £951.96 + £299.97 + £164.78.", w:"Small pence slips — check they kept all the pence"},
+ j5_7:{e:"Two workers, each paid £150 a day, for 2 days: 2 × 2 × £150 = £600. Each worker is paid separately.", w:"300 (one worker); 150"},
+ j5_8:{e:"Materials £1,416.71 + labour £600.", w:"1716.71 (used £300 labour)"},
+ j6_0:{e:"Hourly pay × hours: £18 × 39.", w:"57 (added instead of multiplying)"},
+ j6_1:{e:"Weekly pay × 52 weeks. Employed workers get paid holidays, so they are paid for all 52 weeks.", w:"33,696 (used 48 weeks); 8,424 (multiplied by 12 months)"},
+ j6_2:{e:"Day rate × days a week × weeks worked: 200 × 4 × 46. Self-employed people are only paid for weeks they work — 6 weeks off means no money for those weeks.", w:"41,600 (used 52 weeks); 9,200 (forgot the 4 days)"},
+ j6_3:{e:"Monthly cost × 12 months.", w:"450; 23,400 (× 52 weeks)"},
+ j6_4:{e:"Takings minus costs: £36,800 − £5,400. This is the money left after running the van, before tax.", w:"42,200 (added the van)"},
+ j6_5:{e:"Difference = bigger − smaller: £36,504 − £31,400. Good discussion point: self-employed takes in more money but ends up with less once the van and unpaid holidays are counted.", w:"296 (36,800 − 36,504, forgot the van)"}
+};
+
+const STORE="https://vestigia-store.mrbeasley930.workers.dev", BOOK="ptj26-l1", LSK="ptj26_tracker_cfg";
+const IDLE_MS=3*60*1000;
+let PUPILS=[], SORT={k:"cash",d:-1}, OPEN={}, TIMER=null, LASTLOAD=0;
+
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function money(n){ return "£"+Number(n||0).toLocaleString("en-GB",{minimumFractionDigits:(n%1?2:0),maximumFractionDigits:2}); }
+function cfgLoad(){ try{ const c=JSON.parse(localStorage.getItem(LSK)||"{}"); if(c.token) document.getElementById("token").value=c.token; if(c.auto!=null) document.getElementById("auto").value=c.auto; }catch(e){} }
+function cfgSave(){ try{ localStorage.setItem(LSK,JSON.stringify({token:document.getElementById("token").value,auto:document.getElementById("auto").value})); }catch(e){} }
+function setStatus(t,bad){ const el=document.getElementById("status"); el.textContent=t; el.style.color=bad?"var(--bad)":"var(--mut)"; }
+
+/* ------- derive everything from the pupil's blob ------- */
+function sk(j,i){ return JOBS[j].id+"_"+i; }
+function derive(item){
+  const d=item.data||{}; const s=d.s||{};
+  let cash=0,answered=0,first=0,wrong=[],lastT=0;
+  const jobs=JOBS.map((J,j)=>{ let n=0; J.steps.forEach((S,i)=>{ const r=s[sk(j,i)]; if(r&&r.done){ n++; answered++; cash+=r.pts||0; if(r.ok&&r.tries.length===1&&!r.hint) first++; if(!r.ok||r.tries.length>1) wrong.push({j,i,r}); } if(r&&r.t&&r.t>lastT) lastT=r.t; }); return {n,of:J.steps.length}; });
+  // where are they now
+  let cj=JOBS.length-1, ci=-1;
+  for(let j=0;j<JOBS.length;j++){ const k=JOBS[j].steps.findIndex((_,i)=>!(s[sk(j,i)]&&s[sk(j,i)].done)); if(k>=0){ cj=j; ci=k; break; } }
+  const finished = ci<0;
+  const curRec = finished?null:s[sk(cj,ci)];
+  const recent=Object.values(s).filter(r=>r&&r.done&&r.t).sort((a,b)=>b.t-a.t).slice(0,3);
+  const stuck = !!(curRec && curRec.tries && curRec.tries.length>=1) || recent.filter(r=>!r.ok).length>=2;
+  const t = lastT || Date.parse(d.savedAt||item.savedAt||0) || 0;
+  return { key:item.cls+"::"+item.cand, cls:item.cls, name:d.name||item.cand, cash, answered, first,
+    acc: answered?Math.round(first*100/answered):null, jobs, wrong, finished, cj, ci, curRec, stuck,
+    at: finished?"Finished":(cj===5?"Bonus":"Job "+(cj+1))+" · step "+(ci+1), atSort: finished?999:cj*100+ci,
+    t, rag:d.rag||"", raw:d };
+}
+
+async function loadLive(){
+  cfgSave();
+  const token=document.getElementById("token").value.trim();
+  setStatus("Loading…");
+  try{
+    const r=await fetch(STORE+"/?all=1&book="+encodeURIComponent(BOOK),{headers:token?{"x-teacher-token":token}:{}});
+    if(r.status===401||r.status===403){ setStatus("The store rejected the teacher token. Type the token used on the other trackers.",true); return; }
+    if(!r.ok){ setStatus("Store error "+r.status,true); return; }
+    const j=await r.json();
+    PUPILS=(j.items||[]).filter(it=>it&&it.data&&!it.data.__deleted).map(derive);
+    LASTLOAD=Date.now();
+    fillClassFilter(); render();
+    setStatus("Updated "+new Date().toLocaleTimeString("en-GB")+" · "+PUPILS.length+" pupil records");
+  }catch(e){ setStatus("Could not reach the store — check the internet connection.",true); }
+}
+function fillClassFilter(){}
+function visible(){ return PUPILS.filter(p=>p.cls===CLASS_CODE); }
+function ago(t){ if(!t) return "—"; const s=Math.round((Date.now()-t)/1000); if(s<60) return s+"s ago"; const m=Math.floor(s/60); return m+" min ago"; }
+
+function render(){
+  const P=visible(); const now=Date.now();
+  // tiles
+  const idle=P.filter(p=>!p.finished && p.t && now-p.t>IDLE_MS), stuck=P.filter(p=>!p.finished && p.stuck);
+  const ans=P.reduce((a,p)=>a+p.answered,0), first=P.reduce((a,p)=>a+p.first,0);
+  const jobsDone=P.reduce((a,p)=>a+p.jobs.filter(j=>j.n===j.of).length,0);
+  document.getElementById("tiles").innerHTML=[
+    [P.length,"signed in"],[money(P.reduce((a,p)=>a+p.cash,0)),"earned by the class"],
+    [ans?Math.round(first*100/ans)+"%":"—","right first time"],[P.length?(jobsDone/P.length).toFixed(1):"—","jobs done per pupil"],
+    [stuck.length,"stuck now",stuck.length],[idle.length,"idle 3+ min",idle.length]
+  ].map(t=>`<div class="tile ${t[2]?'warn':''}"><b>${t[0]}</b><span>${t[1]}</span></div>`).join("");
+  // leaderboard: every named pupil, signed-in ranked by money
+  const ranked=[...P].sort((a,b)=>b.cash-a.cash); const mx=Math.max(1,...ranked.map(p=>p.cash));
+  const missing=PUPIL_NAMES.filter(n=>!P.some(p=>p.name===n));
+  document.getElementById("crews").innerHTML = (ranked.length? ranked.map((p,i)=>`<div class="crew"><div class="nm">${i===0&&p.cash>0?'🏆 ':(i+1)+'. '}${esc(p.name)}<div class="ppl">${p.jobs.filter(j=>j.n===j.of).length} job${p.jobs.filter(j=>j.n===j.of).length===1?'':'s'} done</div></div><div class="bar"><i style="width:${Math.round(p.cash*100/mx)}%"></i></div><div class="v">${money(p.cash)}</div></div>`).join("") : '<p class="small">No one signed in yet.</p>')
+    + (missing.length? `<p class="small hideproj" style="margin-top:8px">Not signed in yet: ${esc(missing.join(", "))}</p>`:'');
+  // help
+  const H=[];
+  stuck.forEach(p=>{ const S=JOBS[p.cj].steps[p.ci]; const r=p.curRec;
+    H.push({p,cls:"",txt:`<b>${esc(p.name)}</b> — ${esc(p.at)}${r&&r.tries&&r.tries.length?` · typed <b>${esc(r.tries.join(", "))}</b>`:''}
+      <div>${esc(S.q)}</div><div class="ask">Ask: “Talk me through it — what are you multiplying or dividing, and why?” Method: ${esc(S.m)}</div>`}); });
+  idle.filter(p=>!p.stuck).forEach(p=>{ H.push({p,cls:"idle",txt:`<b>${esc(p.name)}</b> — no answer for ${ago(p.t).replace(' ago','')} · on ${esc(p.at)}`}); });
+  document.getElementById("help").innerHTML = H.length? H.map(h=>`<div class="help ${h.cls}">${h.txt}</div>`).join("") : '<p class="small">Nobody stuck or idle right now.</p>';
+  // grid
+  const k=SORT.k, d=SORT.d;
+  const val=p=>({name:p.name.toLowerCase(),cash:p.cash,acc:p.acc==null?-1:p.acc,at:p.atSort,wrong:p.wrong.length,ago:-p.t}[k]);
+  const rows=[...P].sort((a,b)=>{ const x=val(a),y=val(b); return (x>y?1:x<y?-1:0)*d; });
+  const ragc={green:"var(--ok)",amber:"var(--amb)",red:"var(--bad)"};
+  document.getElementById("grid").innerHTML = rows.map(p=>{
+    const isIdle=!p.finished && p.t && now-p.t>IDLE_MS;
+    let h=`<tr class="row" onclick="toggleRow('${esc(p.key)}')"><td><b>${esc(p.name)}</b>${p.stuck&&!p.finished?' <span style="color:var(--bad)">● stuck</span>':''}</td><td><b>${money(p.cash)}</b></td>
+      <td>${p.acc==null?'—':p.acc+'% <span class="small">('+p.first+'/'+p.answered+')</span>'}</td>
+      <td>${p.jobs.map((j,i)=>`<span class="chip ${j.n===j.of?'done':j.n?'part':''}" title="${esc(JOBS[i].title)}">${i===5?'B':i+1}</span>`).join("")}</td>
+      <td>${esc(p.at)}</td><td>${p.wrong.length}</td><td class="ago ${isIdle?'idle':''}">${ago(p.t)}</td>
+      <td>${p.rag?`<span class="dot" style="background:${ragc[p.rag]}"></span>${esc(p.rag)}`:'—'}</td></tr>`;
+    if(OPEN[p.key]) h+=`<tr class="detail"><td colspan="8">${detailHTML(p)}</td></tr>`;
+    return h; }).join("") || '<tr><td colspan="8" class="small">No pupils yet. Each boy appears here as soon as he picks his name.</td></tr>';
+  // hardest steps
+  const stats=[];
+  JOBS.forEach((J,j)=>J.steps.forEach((S,i)=>{ let n=0,f=0,names=[]; P.forEach(p=>{ const r=(p.raw.s||{})[sk(j,i)]; if(r&&r.done){ n++; if(r.ok&&r.tries.length===1&&!r.hint) f++; else names.push(p.name); } }); if(n>=2) stats.push({j,i,S,n,f,pc:Math.round(f*100/n),names}); }));
+  stats.sort((a,b)=>a.pc-b.pc);
+  document.getElementById("hard").innerHTML = stats.length? stats.slice(0,12).map(x=>{ const c=x.pc<50?"var(--bad)":x.pc<75?"var(--amb)":"var(--ok)";
+    return `<div class="hard"><div class="lab"><b>${x.j===5?'Bonus':'Job '+(x.j+1)}.${x.i+1}</b> ${esc(x.S.q)}<div class="small">Missed or needed help: ${esc(x.names.join(", "))||'nobody'}</div></div><div class="b"><i style="width:${x.pc}%;background:${c}"></i></div><b style="width:90px;text-align:right">${x.pc}% <span class="small">of ${x.n}</span></b></div>`; }).join("") : '<p class="small">Appears once at least two pupils have answered the same step.</p>';
+}
+function detailHTML(p){
+  if(!p.wrong.length) return `<div class="dl">No missed steps yet. ${p.answered} step${p.answered===1?'':'s'} answered.</div>`;
+  return `<div class="dl"><b>${p.wrong.length} step${p.wrong.length>1?'s':''} to look at:</b></div>`+p.wrong.map(w=>{ const S=JOBS[w.j].steps[w.i];
+    return `<div class="dl"><span class="x">${w.r.ok?'~ second try':'✗ missed'}</span>${w.r.hint?' (used hint)':''} — <b>${w.j===5?'Bonus':'Job '+(w.j+1)}.${w.i+1}</b> ${esc(S.q)}<br>
+      typed: <b>${esc((w.r.tries||[]).join(" then "))}</b> · <span class="m">answer ${S.u==='£'?money(S.a):S.a+' '+esc(S.u)} — ${esc(S.m)}</span></div>`; }).join("");
+}
+function toggleRow(k){ OPEN[k]=!OPEN[k]; render(); }
+function sortBy(k){ SORT = SORT.k===k?{k,d:-SORT.d}:{k,d:(k==="name"||k==="at")?1:-1}; render(); }
+function toggleProj(){ document.body.classList.toggle("proj"); }
+function exportCSV(){
+  const P=visible(); const head=["Pupil","Earned","Steps answered","Right first time","Right first time %","Now on","Missed steps","Confidence"].concat(JOBS.map(J=>J.title+" (steps done)"));
+  const lines=[head].concat(P.map(p=>[p.name,p.cash,p.answered,p.first,p.acc==null?"":p.acc,p.at,p.wrong.map(w=>(w.j===5?"B":(w.j+1))+"."+(w.i+1)).join(" "),p.rag].concat(p.jobs.map(j=>j.n+"/"+j.of))));
+  const csv=lines.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="Price_the_Job_results.csv"; a.click();
+}
+function schedule(){ clearInterval(TIMER); const s=Number(document.getElementById("auto").value); if(s>0) TIMER=setInterval(()=>{ loadLive(); },s*1000); cfgSave(); }
+document.getElementById("auto").addEventListener("change",schedule);
+setInterval(()=>{ if(PUPILS.length) render(); },5000); // keep "last answer" times fresh between loads
+
+/* ------- answer sheet ------- */
+function fmtAns(S){ return S.u==='£'?money(S.a):(S.a+' '+S.u); }
+function buildAnswers(){
+  const key=`<div class="keyidea"><b>The three things that trip them up:</b><br>
+   1. <b>Rounding up.</b> Materials come in whole packs, tins and bags. If the sum gives 1.11 packs you buy 2. Rounding down leaves the job short.<br>
+   2. <b>Percentages.</b> 10% = divide by 10. 20% = find 10% and double it. "Add 10%" means work out the 10% then add it on.<br>
+   3. <b>Pence.</b> Money has two decimal places. £754.38 is 754 pounds and 38 pence; the page wants the pence typed in.</div>`;
+  document.getElementById("answers").innerHTML = key + JOBS.map((J,j)=>{
+    const tot=J.steps.length*FULL;
+    return `<details class="job"><summary>${esc(J.title)} — ${J.steps.length} steps · worth ${money(tot)}</summary><div class="in">
+      <p style="margin:6px 0">${esc(J.brief)}</p>
+      <table class="grid" style="margin-bottom:6px">${J.prices.map(p=>`<tr><td style="width:38%"><b>${esc(p[0])}</b></td><td>${esc(p[1])}${p[2]?` · <a href="${p[2]}" target="_blank" rel="noopener" style="color:var(--hv)">link</a>`:''}</td></tr>`).join("")}</table>
+      ${J.steps.map((S,i)=>{ const n=TNOTES[J.id+'_'+i]||{};
+        return `<div class="ansrow"><div class="q">${j===5?'Bonus':'Job '+(j+1)}.${i+1} &nbsp;${esc(S.q)}</div>
+          <div><span class="a">${esc(fmtAns(S))}</span> &nbsp;<span class="wk">${esc(S.m)}</span></div>
+          ${n.e?`<div class="why"><b>Why:</b> ${esc(n.e)}</div>`:''}
+          ${n.w?`<div class="wf"><b>Watch for:</b> ${esc(n.w)}</div>`:''}</div>`; }).join("")}
+    </div></details>`; }).join("");
+}
+let ANS_OPEN=false;
+function toggleAllAns(){ ANS_OPEN=!ANS_OPEN; document.querySelectorAll("details.job").forEach(d=>d.open=ANS_OPEN); }
+function printAnswers(){ document.querySelectorAll("details.job").forEach(d=>d.open=true); document.body.classList.add("printAns"); window.print(); setTimeout(()=>document.body.classList.remove("printAns"),500); }
+buildAnswers();
+cfgLoad(); schedule(); loadLive();
+</script>
+</body>
+</html>
